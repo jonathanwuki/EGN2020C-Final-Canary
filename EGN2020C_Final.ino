@@ -60,8 +60,8 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
  */
 uint32_t getAbsoluteHumidity(float temperature, float humidity) {
   // Approximation formula from Sensirion SGP30 Driver Integration chapter 3.15
-  const float absoluteHumidity = 216.7 f * ((humidity / 100.0 f) * 6.112 f * exp((17.62 f * temperature) / (243.12 f + temperature)) / (273.15 f + temperature)); // [g/m^3]
-  const uint32_t absoluteHumidityScaled = static_cast < uint32_t > (1000.0 f * absoluteHumidity); // [mg/m^3]
+  const float absoluteHumidity = 216.7f * ((humidity / 100.0f) * 6.112f * exp((17.62f * temperature) / (243.12f + temperature)) / (273.15f + temperature)); // [g/m^3]
+  const uint32_t absoluteHumidityScaled = static_cast<uint32_t> (1000.0f * absoluteHumidity); // [mg/m^3]
   return absoluteHumidityScaled;
 }
 
