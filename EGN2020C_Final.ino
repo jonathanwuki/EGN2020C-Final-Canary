@@ -149,13 +149,6 @@ void loop() {
   counter++;
   DHT.read11(TEMP_HUM_PIN);
 
-  Serial.print("Current humidity = ");
-  Serial.print(DHT.humidity);
-  Serial.print("%  ");
-  Serial.print("temperature = ");
-  Serial.print(DHT.temperature);
-  Serial.println("C  ");
-
   // Set the absolute humidity to enable the humidity compensation for the air quality signals
   sgp.setHumidity(getAbsoluteHumidity(DHT.temperature, DHT.humidity));
 
@@ -207,6 +200,9 @@ void loop() {
     Serial.print("eCO2 "); Serial.print(sgp.eCO2); Serial.println(" ppm");
     Serial.print("Raw H2 "); Serial.print(sgp.rawH2); Serial.print(" \t");
     Serial.print("Raw Ethanol "); Serial.print(sgp.rawEthanol); Serial.println("");
+
+    Serial.print("Current humidity = "); Serial.print(DHT.humidity); Serial.print("%  ");
+    Serial.print("Temperature = "); Serial.print(DHT.temperature); Serial.println("C  ");
   }
 
   delay(1000);
