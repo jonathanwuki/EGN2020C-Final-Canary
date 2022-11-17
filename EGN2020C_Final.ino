@@ -6,6 +6,10 @@
  *         Fall 2022
  *         University of Florida
  *         
+ * Some code in this file was borrowed from the Adafruit SGP30 documentation as well as the Arduino LiquidCrystal example sketch.
+ * SGP30 docs: https://learn.adafruit.com/adafruit-sgp30-gas-tvoc-eco2-mox-sensor/arduino-code
+ * LiquidCrystal docs: https://docs.arduino.cc/learn/electronics/lcd-displays
+ *         
  * Last Edited: November 16, 2022
  */
 
@@ -68,6 +72,9 @@ uint32_t getAbsoluteHumidity(float temperature, float humidity) {
   return absoluteHumidityScaled;
 }
 
+/*
+ * Play a short startup tone via the connected Piezo speaker
+ */
 void playStartupTone() {
   ToneOut(TONE_SOUND_1 * 2, TONE_DURATION);
   ToneOut(TONE_SOUND_2 * 2, TONE_DURATION);
@@ -75,19 +82,25 @@ void playStartupTone() {
   delay(TONE_WAIT_TIME);
 }
 
-void ToneOut(int pitch, int duration) { // pitch in Hz, duration in ms
+/*
+ * Auxiliary for playStartupTone function
+ * Plays a specific Piezo tone (in Hz) for a duration
+ * @param pitch [Hz]
+ * @param duration [ms]
+ */
+void ToneOut(int pitch, int duration) {
   int delayPeriod;
   long cycles, i;
 
   pinMode(PIEZO_PIN, OUTPUT); // Turn on output pin
-  delayPeriod = (500000 / pitch) - 7; // calc 1/2 period in us -7 for overhead
-  cycles = ((long) pitch * (long) duration) / 1000; // calc. number of cycles for loop
+  delayPeriod = (500000 / pitch) - 7;
+  cycles = ((long) pitch * (long) duration) / 1000;
 
   for(i = 1; i <= cycles; i++) { // Play noise for specific duration
     digitalWrite(PIEZO_PIN, HIGH);
     delayMicroseconds(delayPeriod);
     digitalWrite(PIEZO_PIN, LOW);
-    delayMicroseconds(delayPeriod - 1); // - 1 to make up for digitalWrite overhead
+    delayMicroseconds(delayPeriod - 1); // -1 to make up for digitalWrite overhead
   }
 
   pinMode(PIEZO_PIN, INPUT); // Shut off pin to avoid noise from other operations
@@ -159,7 +172,8 @@ void loop() {
     digitalWrite(LED_PIN, HIGH);
 
     if(isAboveThreshold == true) {
-      tone(PIEZO_PIN, 523, 1000); // Play tone 60 (C5 = 523 Hz)
+      ToneOut(523, 1000);
+      // tone(PIEZO_PIN, 523, 1000); // Play tone 60 (C5 = 523 Hz)
       isAboveThreshold = false;
     }
   } else {
@@ -168,10 +182,11 @@ void loop() {
   }
 
   if(sgp.TVOC == TVOC_BASELINE && sgp.eCO2 == ECO2_BASELINE && calibrated == false) {
+    // Calibration cycles have not yet been completed, display message accordingly
     lcd.print("Calibrating...");
     lcd.setCursor(0, 1);
     lcd.print("Please wait");
-  } else {
+  } else { // Calibration has already happened, display raw values
     lcd.print("TVOC: "); lcd.print(sgp.TVOC); lcd.print(" ppb"); if(sgp.TVOC > 500) { lcd.print("!!!"); }
     lcd.setCursor(0, 1);
     lcd.print((float) DHT.humidity, 0); lcd.print("%  "); lcd.print((float) DHT.temperature * 1.8 + 32, 0); lcd.print("F");
