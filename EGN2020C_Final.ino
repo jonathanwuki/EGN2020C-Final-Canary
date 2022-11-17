@@ -94,7 +94,7 @@ void ToneOut(int pitch, int duration) {
 
   pinMode(PIEZO_PIN, OUTPUT); // Turn on output pin
   delayPeriod = (500000 / pitch) - 7;
-  cycles = ((long) pitch * (long) duration) / 1000;
+  cycles = ((long)pitch * (long)duration) / 1000;
 
   for(i = 1; i <= cycles; i++) { // Play noise for specific duration
     digitalWrite(PIEZO_PIN, HIGH);
@@ -114,7 +114,7 @@ void setup() {
   lcd.begin(16, 2);
   lcd.print("Initializing...");
   lcd.setCursor(0, 1);
-  lcd.print("FW Version: " + (String) FW_VERSION);
+  lcd.print("FW Version: " + (String)FW_VERSION);
   delay(1000);
 
   // Sensor not attached
@@ -189,7 +189,7 @@ void loop() {
   } else { // Calibration has already happened, display raw values
     lcd.print("TVOC: "); lcd.print(sgp.TVOC); lcd.print(" ppb"); if(sgp.TVOC > 500) { lcd.print("!!!"); }
     lcd.setCursor(0, 1);
-    lcd.print((float) DHT.humidity, 0); lcd.print("%  "); lcd.print((float) DHT.temperature * 1.8 + 32, 0); lcd.print("F");
+    lcd.print((float)DHT.humidity, 0); lcd.print("%  "); lcd.print((float)DHT.temperature * 1.8 + 32, 0); lcd.print("F");
     // lcd.print("eCO2 "); lcd.print(sgp.eCO2); lcd.print(" ppm");
   }
 
