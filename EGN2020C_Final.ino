@@ -27,12 +27,15 @@
 #define TONE_DURATION  170
 #define TONE_WAIT_TIME 512
 
+// Defines for the air quality baselines/max thresholds
 #define ECO2_BASELINE      400
 #define TVOC_BASELINE      0
 #define ECO2_MAX_THRESHOLD 1500
 #define TVOC_MAX_THRESHOLD 108
 
-#define FW_VERSION 1.55
+// Miscellaneous defines
+#define FW_VERSION         1.55
+#define CALIBRATION_CYCLES 30
 
 const bool IS_DEBUG_ENABLED = true;
 bool isAboveThreshold = false;
@@ -61,7 +64,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 uint32_t getAbsoluteHumidity(float temperature, float humidity) {
   // Approximation formula from Sensirion SGP30 Driver Integration chapter 3.15
   const float absoluteHumidity = 216.7f * ((humidity / 100.0f) * 6.112f * exp((17.62f * temperature) / (243.12f + temperature)) / (273.15f + temperature)); // [g/m^3]
-  const uint32_t absoluteHumidityScaled = static_cast<uint32_t> (1000.0f * absoluteHumidity); // [mg/m^3]
+  const uint32_t absoluteHumidityScaled = static_cast<uint32_t>(1000.0f * absoluteHumidity); // [mg/m^3]
   return absoluteHumidityScaled;
 }
 
@@ -123,8 +126,8 @@ void setup() {
   pinMode(PIEZO_PIN, OUTPUT); // Piezo
   pinMode(LED_PIN, OUTPUT); // LED
 
-  // If you have a baseline measurement from before you can assign it to start, to 'self-calibrate'
-  // sgp.setIAQBaseline(0x8E68, 0x8F41); // Will vary for each sensor!
+  // TODO: Get baseline measurement for SGP30 sensor to self-calibrate and eliminate the calibration routine at startup
+  // sgp.setIAQBaseline(0x8E68, 0x8F41); // Not actual baseline, just a placeholder!
 
   playStartupTone();
 }
@@ -140,7 +143,7 @@ void loop() {
   Serial.print(DHT.temperature);
   Serial.println("C  ");
 
-  // If you have a temperature / humidity sensor, you can set the absolute humidity to enable the humditiy compensation for the air quality signals
+  // Set the absolute humidity to enable the humidity compensation for the air quality signals
   sgp.setHumidity(getAbsoluteHumidity(DHT.temperature, DHT.humidity));
 
   if(!sgp.IAQmeasure()) {
@@ -194,7 +197,7 @@ void loop() {
   delay(1000);
   lcd.clear();
 
-  if(counter == 30) {
+  if(counter == CALIBRATION_CYCLES) {
     counter = 0;
     calibrated = true;
 
