@@ -27,6 +27,11 @@
 #define TONE_DURATION  170
 #define TONE_WAIT_TIME 512
 
+#define ECO2_BASELINE      400
+#define TVOC_BASELINE      0
+#define ECO2_MAX_THRESHOLD 1500
+#define TVOC_MAX_THRESHOLD 108
+
 #define FW_VERSION 1.55
 
 const bool IS_DEBUG_ENABLED = true;
@@ -41,42 +46,47 @@ Adafruit_SGP30 sgp;
 dht DHT;
 
 // Initialize LCD library
-const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+const int rs = 12,
+          en = 11,
+          d4 = 5,
+          d5 = 4,
+          d6 = 3,
+          d7 = 2;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 /* Return absolute humidity [mg/m^3] with approximation formula
-* @param temperature [°C]
-* @param humidity [%RH]
-*/
+ * @param temperature [°C]
+ * @param humidity [%RH]
+ */
 uint32_t getAbsoluteHumidity(float temperature, float humidity) {
-    // Approximation formula from Sensirion SGP30 Driver Integration chapter 3.15
-    const float absoluteHumidity = 216.7f * ((humidity / 100.0f) * 6.112f * exp((17.62f * temperature) / (243.12f + temperature)) / (273.15f + temperature)); // [g/m^3]
-    const uint32_t absoluteHumidityScaled = static_cast<uint32_t>(1000.0f * absoluteHumidity); // [mg/m^3]
-    return absoluteHumidityScaled;
+  // Approximation formula from Sensirion SGP30 Driver Integration chapter 3.15
+  const float absoluteHumidity = 216.7 f * ((humidity / 100.0 f) * 6.112 f * exp((17.62 f * temperature) / (243.12 f + temperature)) / (273.15 f + temperature)); // [g/m^3]
+  const uint32_t absoluteHumidityScaled = static_cast < uint32_t > (1000.0 f * absoluteHumidity); // [mg/m^3]
+  return absoluteHumidityScaled;
 }
 
 void playStartupTone() {
-  ToneOut(TONE_SOUND_1 * 2, TONE_DURATION);                    
+  ToneOut(TONE_SOUND_1 * 2, TONE_DURATION);
   ToneOut(TONE_SOUND_2 * 2, TONE_DURATION);
   ToneOut(TONE_SOUND_3 * 2, TONE_DURATION);
   delay(TONE_WAIT_TIME);
 }
 
-void ToneOut(int pitch, int duration) {  // pitch in Hz, duration in ms
+void ToneOut(int pitch, int duration) { // pitch in Hz, duration in ms
   int delayPeriod;
   long cycles, i;
 
   pinMode(PIEZO_PIN, OUTPUT); // Turn on output pin
-  delayPeriod = (500000 / pitch) - 7;   // calc 1/2 period in us -7 for overhead
-  cycles = ((long)pitch * (long)duration) / 1000; // calc. number of cycles for loop
+  delayPeriod = (500000 / pitch) - 7; // calc 1/2 period in us -7 for overhead
+  cycles = ((long) pitch * (long) duration) / 1000; // calc. number of cycles for loop
 
   for(i = 1; i <= cycles; i++) { // Play noise for specific duration
-    digitalWrite(PIEZO_PIN, HIGH); 
+    digitalWrite(PIEZO_PIN, HIGH);
     delayMicroseconds(delayPeriod);
-    digitalWrite(PIEZO_PIN, LOW); 
+    digitalWrite(PIEZO_PIN, LOW);
     delayMicroseconds(delayPeriod - 1); // - 1 to make up for digitalWrite overhead
   }
-  
+
   pinMode(PIEZO_PIN, INPUT); // Shut off pin to avoid noise from other operations
 }
 
@@ -88,7 +98,7 @@ void setup() {
   lcd.begin(16, 2);
   lcd.print("Initializing...");
   lcd.setCursor(0, 1);
-  lcd.print("FW Version: " + (String)FW_VERSION);
+  lcd.print("FW Version: " + (String) FW_VERSION);
   delay(1000);
 
   // Sensor not attached
@@ -120,17 +130,18 @@ void setup() {
 }
 
 void loop() {
-    DHT.read11(TEMP_HUM_PIN);
-    
-    Serial.print("Current humidity = ");
-    Serial.print(DHT.humidity);
-    Serial.print("%  ");
-    Serial.print("temperature = ");
-    Serial.print(DHT.temperature); 
-    Serial.println("C  ");
+  counter++;
+  DHT.read11(TEMP_HUM_PIN);
 
-   // If you have a temperature / humidity sensor, you can set the absolute humidity to enable the humditiy compensation for the air quality signals
-   sgp.setHumidity(getAbsoluteHumidity(DHT.temperature, DHT.humidity));
+  Serial.print("Current humidity = ");
+  Serial.print(DHT.humidity);
+  Serial.print("%  ");
+  Serial.print("temperature = ");
+  Serial.print(DHT.temperature);
+  Serial.println("C  ");
+
+  // If you have a temperature / humidity sensor, you can set the absolute humidity to enable the humditiy compensation for the air quality signals
+  sgp.setHumidity(getAbsoluteHumidity(DHT.temperature, DHT.humidity));
 
   if(!sgp.IAQmeasure()) {
     Serial.println("Error 3: Measurement failed");
@@ -141,26 +152,26 @@ void loop() {
     return;
   }
 
-  if(sgp.TVOC > 108) {
-    digitalWrite(LED_PIN, HIGH); // LED
-    
+  if(sgp.TVOC > TVOC_MAX_THRESHOLD) {
+    digitalWrite(LED_PIN, HIGH);
+
     if(isAboveThreshold == true) {
       tone(PIEZO_PIN, 523, 1000); // Play tone 60 (C5 = 523 Hz)
       isAboveThreshold = false;
     }
   } else {
     isAboveThreshold = false;
-    digitalWrite(LED_PIN, LOW); // LED
+    digitalWrite(LED_PIN, LOW);
   }
 
-  if(sgp.TVOC == 0 && sgp.eCO2 == 400 && calibrated == false) {
+  if(sgp.TVOC == TVOC_BASELINE && sgp.eCO2 == ECO2_BASELINE && calibrated == false) {
     lcd.print("Calibrating...");
     lcd.setCursor(0, 1);
     lcd.print("Please wait");
   } else {
     lcd.print("TVOC: "); lcd.print(sgp.TVOC); lcd.print(" ppb"); if(sgp.TVOC > 500) { lcd.print("!!!"); }
     lcd.setCursor(0, 1);
-    lcd.print((float)DHT.humidity, 0); lcd.print("%  "); lcd.print((float)DHT.temperature * 1.8 + 32, 0); lcd.print("F");
+    lcd.print((float) DHT.humidity, 0); lcd.print("%  "); lcd.print((float) DHT.temperature * 1.8 + 32, 0); lcd.print("F");
     // lcd.print("eCO2 "); lcd.print(sgp.eCO2); lcd.print(" ppm");
   }
 
@@ -179,16 +190,15 @@ void loop() {
     Serial.print("Raw H2 "); Serial.print(sgp.rawH2); Serial.print(" \t");
     Serial.print("Raw Ethanol "); Serial.print(sgp.rawEthanol); Serial.println("");
   }
- 
+
   delay(1000);
   lcd.clear();
 
-  counter++;
   if(counter == 30) {
     counter = 0;
     calibrated = true;
 
-    if(sgp.TVOC > 108) {
+    if(sgp.TVOC > TVOC_MAX_THRESHOLD) {
       isAboveThreshold = true;
     } else {
       isAboveThreshold = false;
