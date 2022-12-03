@@ -10,7 +10,7 @@
  * SGP30 docs: https://learn.adafruit.com/adafruit-sgp30-gas-tvoc-eco2-mox-sensor/arduino-code
  * LiquidCrystal docs: https://docs.arduino.cc/learn/electronics/lcd-displays
  *         
- * Last Edited: November 16, 2022
+ * Last Edited: December 3, 2022
  */
 
 #include <LiquidCrystal.h>
@@ -67,6 +67,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
  */
 uint32_t getAbsoluteHumidity(float temperature, float humidity) {
   // Approximation formula from Sensirion SGP30 Driver Integration chapter 3.15
+  // (Provided in SGP30 documentation)
   const float absoluteHumidity = 216.7f * ((humidity / 100.0f) * 6.112f * exp((17.62f * temperature) / (243.12f + temperature)) / (273.15f + temperature)); // [g/m^3]
   const uint32_t absoluteHumidityScaled = static_cast<uint32_t>(1000.0f * absoluteHumidity); // [mg/m^3]
   return absoluteHumidityScaled;
@@ -76,6 +77,7 @@ uint32_t getAbsoluteHumidity(float temperature, float humidity) {
  * Play a short startup tone via the connected Piezo speaker
  */
 void playStartupTone() {
+  // Each tone sound is a different frequency, we chose what sounded best as a startup tone
   ToneOut(TONE_SOUND_1 * 2, TONE_DURATION);
   ToneOut(TONE_SOUND_2 * 2, TONE_DURATION);
   ToneOut(TONE_SOUND_3 * 2, TONE_DURATION);
@@ -84,7 +86,7 @@ void playStartupTone() {
 
 /*
  * Auxiliary for playStartupTone function
- * Plays a specific Piezo tone (in Hz) for a duration
+ * Play a specific Piezo tone (in Hz) for a duration
  * @param pitch [Hz]
  * @param duration [ms]
  */
@@ -93,14 +95,14 @@ void ToneOut(int pitch, int duration) {
   long cycles, i;
 
   pinMode(PIEZO_PIN, OUTPUT); // Turn on output pin
-  delayPeriod = (500000 / pitch) - 7;
-  cycles = ((long)pitch * (long)duration) / 1000;
+  delayPeriod = (500000 / pitch) - 7; // 500000 is an arbitrary number we found to work best with the tones we wanted to play
+  cycles = ((long)pitch * (long)duration) / 1000; // Calculate number of cycles depending on pitch and duration, divide by 1000ms
 
   for(i = 1; i <= cycles; i++) { // Play noise for specific duration
-    digitalWrite(PIEZO_PIN, HIGH);
-    delayMicroseconds(delayPeriod);
-    digitalWrite(PIEZO_PIN, LOW);
-    delayMicroseconds(delayPeriod - 1); // -1 to make up for digitalWrite overhead
+    digitalWrite(PIEZO_PIN, HIGH); // Setting the Piezo to HIGH plays a tone
+    delayMicroseconds(delayPeriod); // Wait for the calculated delay period (again, somewhat arbitrary)
+    digitalWrite(PIEZO_PIN, LOW); // Stop playing the tone
+    delayMicroseconds(delayPeriod - 1); // Delay for (period - 1) to make up for digitalWrite overhead
   }
 
   pinMode(PIEZO_PIN, INPUT); // Shut off pin to avoid noise from other operations
@@ -128,6 +130,7 @@ void setup() {
   }
 
   if(IS_DEBUG_ENABLED) {
+    // Display SGP30 serial info if debug mode is enabled
     Serial.println("SGP30 initialized!");
     Serial.print("Found SGP30 serial #");
     Serial.print(sgp.serialnumber[0], HEX);
@@ -139,15 +142,12 @@ void setup() {
   pinMode(PIEZO_PIN, OUTPUT); // Piezo
   pinMode(LED_PIN, OUTPUT); // LED
 
-  // TODO: Get baseline measurement for SGP30 sensor to self-calibrate and eliminate the calibration routine at startup
-  // sgp.setIAQBaseline(0x8E68, 0x8F41); // Not actual baseline, just a placeholder!
-
-  playStartupTone();
+  playStartupTone(); // Finish startup by playing the tone
 }
 
 void loop() {
-  counter++;
-  DHT.read11(TEMP_HUM_PIN);
+  counter++; // Increment loop counter (this is used during the calibration routine to make sure we have accurate baseline readings)
+  DHT.read11(TEMP_HUM_PIN); // Read temperature and humidity
 
   // Set the absolute humidity to enable the humidity compensation for the air quality signals
   sgp.setHumidity(getAbsoluteHumidity(DHT.temperature, DHT.humidity));
@@ -161,17 +161,16 @@ void loop() {
     return;
   }
 
-  if(sgp.TVOC > TVOC_MAX_THRESHOLD) {
-    digitalWrite(LED_PIN, HIGH);
+  if(sgp.TVOC > TVOC_MAX_THRESHOLD) { // TVOC is too high/beyond threshold
+    digitalWrite(LED_PIN, HIGH); // Turn LED on
 
     if(isAboveThreshold == true) {
-      ToneOut(523, 1000);
-      // tone(PIEZO_PIN, 523, 1000); // Play tone 60 (C5 = 523 Hz)
+      ToneOut(523, 1000); // Play a tone on the Piezo speaker to alert the user that TVOC is too high
       isAboveThreshold = false;
     }
-  } else {
+  } else { // TVOC is no longer too high/beyond threshold
     isAboveThreshold = false;
-    digitalWrite(LED_PIN, LOW);
+    digitalWrite(LED_PIN, LOW); // Turn LED off
   }
 
   if(sgp.TVOC == TVOC_BASELINE && sgp.eCO2 == ECO2_BASELINE && calibrated == false) {
@@ -183,10 +182,9 @@ void loop() {
     lcd.print("TVOC: "); lcd.print(sgp.TVOC); lcd.print(" ppb"); if(sgp.TVOC > 500) { lcd.print("!!!"); }
     lcd.setCursor(0, 1);
     lcd.print((float)DHT.humidity, 0); lcd.print("%  "); lcd.print((float)DHT.temperature * 1.8 + 32, 0); lcd.print("F");
-    // lcd.print("eCO2 "); lcd.print(sgp.eCO2); lcd.print(" ppm");
   }
 
-  if(!sgp.IAQmeasureRaw()) {
+  if(!sgp.IAQmeasureRaw()) { // An error occurred while trying to measure raw air quality values
     Serial.println("Error 1: Raw measurement failed");
     lcd.setCursor(0, 0);
     lcd.print("Error 1");
@@ -196,6 +194,7 @@ void loop() {
   }
 
   if(IS_DEBUG_ENABLED) {
+    // Display raw data in console if debug mode is enabled
     Serial.print("TVOC "); Serial.print(sgp.TVOC); Serial.print(" ppb \t");
     Serial.print("eCO2 "); Serial.print(sgp.eCO2); Serial.println(" ppm");
     Serial.print("Raw H2 "); Serial.print(sgp.rawH2); Serial.print(" \t");
@@ -205,21 +204,22 @@ void loop() {
     Serial.print("Temperature = "); Serial.print(DHT.temperature); Serial.println("C  ");
   }
 
-  delay(1000);
-  lcd.clear();
+  delay(1000); // Delay for 1000ms before updating/looping again
+  lcd.clear(); // Clear the LCD in preparation to start over from the beginning of the loop
 
-  if(counter == CALIBRATION_CYCLES) {
-    counter = 0;
+  if(counter == CALIBRATION_CYCLES) { // Check if we've reached out set number of calibration cycles
+    counter = 0; // Reset the counter
     calibrated = true;
 
-    if(sgp.TVOC > TVOC_MAX_THRESHOLD) {
+    if(sgp.TVOC > TVOC_MAX_THRESHOLD) { // Check again here if we are above the TVOC threshold, as this could've been the case while calibrating
       isAboveThreshold = true;
     } else {
       isAboveThreshold = false;
     }
 
     uint16_t TVOC_base, eCO2_base;
-    if(!sgp.getIAQBaseline(&eCO2_base, &TVOC_base)) {
+    if(!sgp.getIAQBaseline(&eCO2_base, &TVOC_base)) { // Get TVOC and eCO2 readings (eCO2 not used on the display but is still available via the SGP30 sensor)
+      // TVOC/eCO2 readings unavailable, display error message accordingly
       Serial.println("Error 4: Failed to get baseline readings");
       lcd.setCursor(0, 0);
       lcd.print("Error 4");
@@ -229,6 +229,7 @@ void loop() {
     }
 
     if(IS_DEBUG_ENABLED) {
+      // Print baseline eCO2 and TVOC values post-calibration if debug mode is enabled
       Serial.print("****Baseline values: eCO2: 0x"); Serial.print(eCO2_base, HEX);
       Serial.print(" & TVOC: 0x"); Serial.println(TVOC_base, HEX);
     }
